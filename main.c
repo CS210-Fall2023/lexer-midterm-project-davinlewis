@@ -1,3 +1,10 @@
+/**
+ * @file   main.c
+ * @author Davin Lewis
+ * @brief  Program accepts a file then lexes file into a new file with same named plus the extension ".lexer"
+ * @date   09/24/2023
+ *
+ */
 #include "lexer.h"
 
 int main(int argc, char *argv[])
@@ -21,7 +28,7 @@ int main(int argc, char *argv[])
         //parses and categorizes tokens
         findType(myString, fptr, write);
     }
-
+    //closes files
     fclose(write);
     fclose(fptr);
     }

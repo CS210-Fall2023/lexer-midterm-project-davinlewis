@@ -1,3 +1,11 @@
+/**
+ * @file   lexer.h
+ * @author Davin Lewis
+ * @brief  Header file for program accepts a file then lexes file into a new file with same named plus the extension ".lexer"
+ * @date   09/24/2023
+ *
+ */
+
 #ifndef LEXER_H
 #define LEXER_H
 

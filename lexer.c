@@ -1,3 +1,11 @@
+/**
+ * @file   lexer.c
+ * @author Davin Lewis
+ * @brief  Functions for a program accepts a file then lexes file into a new file with same named plus the extension ".lexer"
+ * @date   09/24/2023
+ *
+ */
+
 #include "lexer.h"
 //for comparing to keywordlist
 const int KEYWORDS_COUNT = 37;
@@ -14,6 +22,7 @@ char *operatorsList[] = { ".",   "<",   ">",   "(",   ")",   "+",   "-",  "*",  
 void findType(char *line, FILE *fptr, FILE *write)
 {
     int start=0, end=0, doubleOp =0;
+    //temp strings
     char token[256], operator[2];
     memset(token, '\0', sizeof(token));
     //runs through entire line of document
@@ -24,8 +33,6 @@ void findType(char *line, FILE *fptr, FILE *write)
         {
             start = i;
         }
-
-        
 
         //detects if there is a comment
         if ((line[i] == '/' && line[i+1] == '*') || (line[i] == '*' && line[i-1] == '/'))
@@ -50,23 +57,19 @@ void findType(char *line, FILE *fptr, FILE *write)
             end = start;
         }
 
+        //detects if there's a number 
         else if(isdigit(line[i]) && !isalpha(line[i-1]))
         {
-            /*end = i;
-            if(end-start > 1 || (end-start == 1 && isalnum(line[i-1])))
-            {
-                strncpy(token, line+start, end-start);
-                sort(token, write);
-                memset(token, '\0', sizeof(token));
-            }*/
             i = isNumber(line, i, fptr, write);
             start =i;
             end = start;
         }
 
+        //detects if there's punctuation
         if ((ispunct(line[i]) || line[i] == '<' || line[i] == '>' || line[i] == '=') && line[i] != '_')
         {
             end = i;
+            //creates token for anything that came before the the symbol and sorts it
             if(end-start > 1 || (end-start == 1 && isalnum(line[i-1])))
             {
                 strncpy(token, line+start, end-start);
@@ -80,14 +83,14 @@ void findType(char *line, FILE *fptr, FILE *write)
                 }
                 memset(token, '\0', sizeof(token));
             }
-
+            //detects if the symbol means a string
             if(line[i] == '"')
             {
                 i = isString(line, i, fptr, write);
                 start = i+1;
                 end = start;
             }
-
+            //detects if the symbol means a character literal
             else if(line[i] == 39)
             {
                 fprintf(write, "'%c' (character literal)\n", line[i+1]);
@@ -95,11 +98,12 @@ void findType(char *line, FILE *fptr, FILE *write)
                 start = i+1;
                 end = start;
             }
-
+            //detects if there's 2 symbols in a row
             else if ((ispunct(line[i+1]) || line[i+1] == '<' || line[i+1] == '>' || line[i+1] == '=') && line[i+1] != '_')
             {
                 operator[0] = line[i];
                 operator[1] = line[i+1];
+                //checks if the 2 integers are a double operator or 2 operators next to each other
                 for(int j = 0; j < OPERATORS_COUNT; j++) 
                 {
                     //if match is found
@@ -109,6 +113,7 @@ void findType(char *line, FILE *fptr, FILE *write)
                         doubleOp = 1;
                     }
                 }
+                //if a double operator
                 if(doubleOp == 1)
                 {
                     fprintf(write, "%s (operator)\n", operator);
@@ -116,6 +121,7 @@ void findType(char *line, FILE *fptr, FILE *write)
                     start = i;
                     end = start;
                 }
+                //if 2 seperate operators
                 else
                 {
                     isOperator(line, i, fptr, write);
@@ -125,7 +131,7 @@ void findType(char *line, FILE *fptr, FILE *write)
                 doubleOp = 0;
                 memset(operator, '\0', sizeof(operator));
             }
-
+            //any symbols that don't have special requirements get checked if they're an operator
             else
             {
                 isOperator(line, i, fptr, write);
@@ -138,6 +144,7 @@ void findType(char *line, FILE *fptr, FILE *write)
         //if starting point is fine, updates ending point and sorts token
         else if (i > start && (line[i] == ' ' || line[i] == '\n'))
         {
+            //creates token a identifies it
             end = i;
             strncpy(token, line+start, end-start);
             sort(token, write);
@@ -148,11 +155,13 @@ void findType(char *line, FILE *fptr, FILE *write)
     }
 }
 
+//checks whether a symbol is an operator or unknown
 void isOperator(char *line, int position, FILE *fptr, FILE *write)
 {
     int found = 0;
     char operator[1];
     operator[0] = line[position];
+    //runs through list of operators to verify status
     for(int j = 0; j < OPERATORS_COUNT; j++) 
     {
         //if match is found
@@ -162,6 +171,7 @@ void isOperator(char *line, int position, FILE *fptr, FILE *write)
             found = 1;
         }
     }
+    //if symbol isn't an operator it's unknown
     if(found == 0)
     {
         fprintf(write, "%c (UNK)\n", line[position]);
@@ -171,6 +181,7 @@ void isOperator(char *line, int position, FILE *fptr, FILE *write)
 //prints comment after deteced
 int isComment(char *line, int position, FILE *fptr, FILE *write)
 {
+    //debugs in the case of starting / not being detected
     if (line[position] == '*')
     {
         fprintf(write, "%c", line[position-1]);
@@ -227,6 +238,7 @@ int isString(char *line, int position, FILE *fptr, FILE *write)
 //prints string after deteced
 int isNumber(char *line, int position, FILE *fptr, FILE *write)
 {
+    //debugs in the case of missing a number beforehand
     if (isdigit(line[position-1]))
             {
                 fprintf(write, "%c", line[position-1]);
@@ -262,6 +274,7 @@ int isNumber(char *line, int position, FILE *fptr, FILE *write)
     return -1;
 }
 
+//sorts words as either keywords or identifiers
 void sort(char *token, FILE *write)
 {
     //compares token to keyword list
