@@ -11,15 +11,16 @@ char *operatorsList[] = { ".",   "<",   ">",   "(",   ")",   "+",   "-",  "*",  
 
 
 //reads through lines, creating tokens, sending to functions for sorting
-void findType(char *line, FILE *fptr)
+void findType(char *line, FILE *fptr, FILE *write)
 {
     int start=0, end=0, doubleOp =0;
     char token[256], operator[2];
+    memset(token, '\0', sizeof(token));
     //runs through entire line of document
     for(int i = 0; i < strlen(line); i++)
     {
         //adjusts starting point when start is a blank
-        if (i > start && line[start] ==' ')
+        if (i > start && (line[start] ==' ' || line[start] == '\n'))
         {
             start = i;
         }
@@ -27,7 +28,7 @@ void findType(char *line, FILE *fptr)
         
 
         //detects if there is a comment
-        if (line[i] == '/' && line[i+1] == '*')
+        if ((line[i] == '/' && line[i+1] == '*') || (line[i] == '*' && line[i-1] == '/'))
         {
             end = i;
             if(end-start > 1 || (end-start == 1 && isalnum(line[i-1])))
@@ -35,52 +36,67 @@ void findType(char *line, FILE *fptr)
                 strncpy(token, line+start, end-start);
                 if(isdigit(line[i-1]))
                 {
-                    printf("%c (numeric literal)\n", line[i-1]);
+                    fprintf(write, "%c (numeric literal)\n", line[i-1]);
                 }
                 else
                 {
-                    sort(token);
+                    sort(token, write);
                 }
                 memset(token, '\0', sizeof(token));
             }
-            i = isComment(line, i, fptr);
+            i = isComment(line, i, fptr, write);
             i = i+2;
             start = i;
             end = start;
         }
 
-        else if(isdigit(line[i]))
+        else if(isdigit(line[i]) && !isalpha(line[i-1]))
         {
-            end = i;
+            /*end = i;
             if(end-start > 1 || (end-start == 1 && isalnum(line[i-1])))
             {
                 strncpy(token, line+start, end-start);
-                sort(token);
+                sort(token, write);
                 memset(token, '\0', sizeof(token));
-            }
-            i = isNumber(line, i, fptr);
+            }*/
+            i = isNumber(line, i, fptr, write);
             start =i;
             end = start;
         }
 
-        else if ((ispunct(line[i]) || line[i] == '<' || line[i] == '>' || line[i] == '=') && line[i] != '_')
+        if ((ispunct(line[i]) || line[i] == '<' || line[i] == '>' || line[i] == '=') && line[i] != '_')
         {
             end = i;
             if(end-start > 1 || (end-start == 1 && isalnum(line[i-1])))
             {
                 strncpy(token, line+start, end-start);
-                if(isdigit(line[i-1]))
+                if(isdigit(line[i-1]) && !isalpha(line[i-2]))
                 {
-                    printf("%c (numeric literal)\n", line[i-1]);
+                    fprintf(write, "%c (numeric literal)\n", line[i-1]);
                 }
                 else
                 {
-                    sort(token);
+                    sort(token, write);
                 }
                 memset(token, '\0', sizeof(token));
             }
 
-            if ((ispunct(line[i+1]) || line[i+1] == '<' || line[i+1] == '>' || line[i+1] == '=') && line[i+1] != '_')
+            if(line[i] == '"')
+            {
+                i = isString(line, i, fptr, write);
+                start = i+1;
+                end = start;
+            }
+
+            else if(line[i] == 39)
+            {
+                fprintf(write, "'%c' (character literal)\n", line[i+1]);
+                i = i+2;
+                start = i+1;
+                end = start;
+            }
+
+            else if ((ispunct(line[i+1]) || line[i+1] == '<' || line[i+1] == '>' || line[i+1] == '=') && line[i+1] != '_')
             {
                 operator[0] = line[i];
                 operator[1] = line[i+1];
@@ -95,14 +111,14 @@ void findType(char *line, FILE *fptr)
                 }
                 if(doubleOp == 1)
                 {
-                    printf("%s (operator)\n", operator);
+                    fprintf(write, "%s (operator)\n", operator);
                     i = i+2;
                     start = i;
                     end = start;
                 }
                 else
                 {
-                    isOperator(line, i, fptr);
+                    isOperator(line, i, fptr, write);
                     start = i+1;
                     end = start;
                 }
@@ -110,24 +126,9 @@ void findType(char *line, FILE *fptr)
                 memset(operator, '\0', sizeof(operator));
             }
 
-            else if(line[i] == '"')
-            {
-                i = isString(line, i, fptr);
-                start = i+1;
-                end = start;
-            }
-
-            else if(line[i] == 39)
-            {
-                printf("'%c' (character literal)\n", line[i+1]);
-                i = i+2;
-                start = i+1;
-                end = start;
-            }
-
             else
             {
-                isOperator(line, i, fptr);
+                isOperator(line, i, fptr, write);
                 start = i+1;
                 end = start;
             }
@@ -139,15 +140,15 @@ void findType(char *line, FILE *fptr)
         {
             end = i;
             strncpy(token, line+start, end-start);
-            sort(token);
-            start = i+1;
+            sort(token, write);
+            start = i;
             end = start;
             memset(token, '\0', sizeof(token));
         }
     }
 }
 
-void isOperator(char *line, int position, FILE *fptr)
+void isOperator(char *line, int position, FILE *fptr, FILE *write)
 {
     int found = 0;
     char operator[1];
@@ -157,31 +158,35 @@ void isOperator(char *line, int position, FILE *fptr)
         //if match is found
         if(strcmp(operator, operatorsList[j]) == 0) 
         {
-            printf("%c (operator)\n", line[position]);
+            fprintf(write, "%c (operator)\n", line[position]);
             found = 1;
         }
     }
     if(found == 0)
     {
-        printf("%c (UNK)\n", line[position]);
+        fprintf(write, "%c (UNK)\n", line[position]);
     }
 }
 
 //prints comment after deteced
-int isComment(char *line, int position, FILE *fptr)
+int isComment(char *line, int position, FILE *fptr, FILE *write)
 {
+    if (line[position] == '*')
+    {
+        fprintf(write, "%c", line[position-1]);
+    }
     do 
     {
         //runs through entire line
         for(int i = position; i < strlen(line); i++)
         {
             //prints each character from line
-            printf("%c", line[i]);
+            fprintf(write, "%c", line[i]);
             //checks for comment end within line
             if(line[i] == '*' && line[i+1] == '/')
             {
                 //when end dectected marks as comment and returns position after comment ends
-                printf("%c (comment)\n", line[i+1]);
+                fprintf(write, "%c (comment)\n", line[i+1]);
                 return i++;
             }
         }
@@ -193,7 +198,7 @@ int isComment(char *line, int position, FILE *fptr)
 }
 
 //prints string after deteced
-int isString(char *line, int position, FILE *fptr)
+int isString(char *line, int position, FILE *fptr, FILE *write)
 {
     int first = 0;
     do 
@@ -202,12 +207,12 @@ int isString(char *line, int position, FILE *fptr)
         for(int i = position; i < strlen(line); i++)
         {
             //prints each character from line
-            printf("%c", line[i]);
+            fprintf(write, "%c", line[i]);
             //checks for string end within line
             if(line[i] == '"' && first != 0)
             {
                 //when end dectected marks as string and returns position after string ends
-                printf(" (string)\n");
+                fprintf(write, " (string)\n");
                 return i;
             }
             first++;
@@ -220,8 +225,12 @@ int isString(char *line, int position, FILE *fptr)
 }
 
 //prints string after deteced
-int isNumber(char *line, int position, FILE *fptr)
+int isNumber(char *line, int position, FILE *fptr, FILE *write)
 {
+    if (isdigit(line[position-1]))
+            {
+                fprintf(write, "%c", line[position-1]);
+            }
     do 
     {
         //runs through entire line
@@ -230,19 +239,19 @@ int isNumber(char *line, int position, FILE *fptr)
             //checks for string end within line
             if(isdigit(line[i]))
             {
-                printf("%c", line[i]);
+                fprintf(write, "%c", line[i]);
             }
             else if(line[i] == '#' && isdigit(line[i-1]))
             {
-                printf("%c", line[i]);
+                fprintf(write, "%c", line[i]);
             }
             else if(line[i] =='.' && isdigit(line[i-1]) && isdigit(line[i+1]))
             {
-                printf("%c", line[i]);
+                fprintf(write, "%c", line[i]);
             }
             else
             {
-                printf(" (numeric literal)\n");
+                fprintf(write, " (numeric literal)\n");
                 return i;
             }
         }
@@ -253,7 +262,7 @@ int isNumber(char *line, int position, FILE *fptr)
     return -1;
 }
 
-void sort(char *token)
+void sort(char *token, FILE *write)
 {
     //compares token to keyword list
     for(int i = 0; i < KEYWORDS_COUNT; i++) {
@@ -261,9 +270,9 @@ void sort(char *token)
         if(strcmp(token, keywordsList[i]) == 0) 
         {
             //prints the token follow by keyword
-            printf("%s (keyword)\n", token);
+            fprintf(write, "%s (keyword)\n", token);
             return;
         }
     }
-    printf("%s (identifier)\n", token);
+    fprintf(write, "%s (identifier)\n", token);
 }
